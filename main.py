@@ -120,4 +120,16 @@ def save_san_test(test_data: schemas.SanTestCreate, db: Session = Depends(get_db
     db.commit()
     db.refresh(new_test)
     return new_test
+
+@app.get("/san-test", response_model=List[schemas.SanTestResponse])
+def get_san_results(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    # Получаем все результаты текущего пользователя, сортируем по убыванию даты (свежие сверху)
+    results = db.query(models.SanTestResult)\
+        .filter(models.SanTestResult.user_id == current_user.id)\
+        .order_by(models.SanTestResult.date.desc())\
+        .all()
+    return results
 #endregion
