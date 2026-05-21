@@ -1,4 +1,6 @@
 # main.py
+from datetime import timezone, datetime
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -12,6 +14,8 @@ import models, schemas, security
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Pocket Manager API")
+
+
 
 
 @app.get("/")
@@ -58,7 +62,10 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db),
 
 @app.get("/tasks", response_model=List[schemas.TaskResponse])
 def get_tasks(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
-    return db.query(models.Task).filter(models.Task.user_id == current_user.id).all()
+    return db.query(models.Task).filter(
+        models.Task.user_id == current_user.id,
+        models.Task.is_deleted == False
+    ).all()
 
 
 @app.put("/tasks/{task_id}/complete", response_model=schemas.TaskResponse)
@@ -95,9 +102,10 @@ def delete_task(task_id: int, db: Session = Depends(get_db),
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    db.delete(task)
+    task.is_deleted = True
     db.commit()
-    return {"detail": "Task deleted successfully"}
+
+    return {"detail": "Task marked as deleted"}
 #endregion
 
 #region Pomodoro
@@ -133,3 +141,96 @@ def get_san_results(
         .all()
     return results
 #endregion
+
+# region Sync
+@app.post("/sync", response_model=schemas.SyncResponse)
+def sync_data(sync_req: schemas.SyncRequest, db: Session = Depends(get_db),
+              current_user: models.User = Depends(security.get_current_user)):
+    now = datetime.now(timezone.utc)
+
+    for client_task in sync_req.tasks:
+        client_time = client_task.updated_at.replace(tzinfo=None)
+
+        if client_task.id:
+            db_task = db.query(models.Task).filter(
+                models.Task.id == client_task.id,
+                models.Task.user_id == current_user.id
+            ).first()
+
+            if db_task:
+                if client_time > db_task.updated_at:
+                    db_task.title = client_task.title
+                    db_task.description = client_task.description
+                    db_task.is_completed = client_task.is_completed
+                    db_task.is_deleted = client_task.is_deleted
+        else:
+            new_task = models.Task(
+                user_id=current_user.id,
+                title=client_task.title,
+                description=client_task.description,
+                is_completed=client_task.is_completed,
+                is_deleted=client_task.is_deleted
+            )
+            db.add(new_task)
+
+    db.commit()
+
+    query = db.query(models.Task).filter(models.Task.user_id == current_user.id)
+
+    if sync_req.last_sync_at:
+        last_sync_naive = sync_req.last_sync_at.replace(tzinfo=None)
+        query = query.filter(models.Task.updated_at > last_sync_naive)
+
+    server_tasks = query.all()
+
+    return {
+        "current_sync_at": now,
+        "tasks": server_tasks
+    }
+# endregion
+
+# region Company Management
+@app.post("/companies", response_model=schemas.CompanyResponse)
+def create_company(company: schemas.CompanyCreate, db: Session = Depends(get_db),
+                   current_user: models.User = Depends(security.get_current_user)):
+    if current_user.company_id is not None:
+        raise HTTPException(status_code=400, detail="User is already in a company")
+
+    new_company = models.Company(name=company.name, owner_id=current_user.id)
+    db.add(new_company)
+    db.commit()
+    db.refresh(new_company)
+
+    current_user.role = models.RoleEnum.manager
+    current_user.company_id = new_company.id
+    db.commit()
+
+    return new_company
+
+
+@app.post("/departments", response_model=schemas.DepartmentResponse)
+def create_department(dept: schemas.DepartmentCreate, db: Session = Depends(get_db),
+                      current_user: models.User = Depends(security.get_current_user)):
+    if current_user.role != models.RoleEnum.manager or current_user.company_id != dept.company_id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    new_dept = models.Department(**dept.model_dump())
+    db.add(new_dept)
+    db.commit()
+    db.refresh(new_dept)
+    return new_dept
+
+
+@app.post("/positions", response_model=schemas.PositionResponse)
+def create_position(pos: schemas.PositionCreate, db: Session = Depends(get_db),
+                    current_user: models.User = Depends(security.get_current_user)):
+    department = db.query(models.Department).filter(models.Department.id == pos.department_id).first()
+    if not department or department.company_id != current_user.company_id or current_user.role != models.RoleEnum.manager:
+        raise HTTPException(status_code=403, detail="Not enough permissions or department not found")
+
+    new_pos = models.Position(**pos.model_dump())
+    db.add(new_pos)
+    db.commit()
+    db.refresh(new_pos)
+    return new_pos
+# endregion
