@@ -115,3 +115,29 @@ class SanTestResult(Base, SyncMixin):
     score_n: Mapped[float] = mapped_column(nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="san_results")
+
+#region Invitations & Audit
+class Invitation(Base, SyncMixin):
+    __tablename__ = "invitations"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    position_id: Mapped[int] = mapped_column(ForeignKey("positions.id"), nullable=True)
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    action: Mapped[str] = mapped_column(String(255), nullable=False)
+    details: Mapped[str] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user: Mapped["User"] = relationship()
+#endregion

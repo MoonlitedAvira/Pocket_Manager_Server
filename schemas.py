@@ -143,3 +143,44 @@ class PositionResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 #endregion
+
+# region Invitations & Audit
+class InvitationCreate(BaseModel):
+    department_id: Optional[int] = None
+    position_id: Optional[int] = None
+
+
+class InvitationResponse(BaseModel):
+    id: int
+    code: str
+    company_id: int
+    department_id: Optional[int]
+    position_id: Optional[int]
+    is_used: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class JoinCompanyRequest(BaseModel):
+    code: str
+
+
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: int
+    user_email: Optional[str] = None
+    action: str
+    details: Optional[str]
+    created_at: datetime
+
+    @classmethod
+    def from_orm_custom(cls, log_obj):
+        return cls(
+            id=log_obj.id,
+            user_id=log_obj.user_id,
+            user_email=log_obj.user.email if log_obj.user else "Unknown",
+            action=log_obj.action,
+            details=log_obj.details,
+            created_at=log_obj.created_at
+        )
+# endregion

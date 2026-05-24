@@ -1,4 +1,6 @@
 # main.py
+import secrets
+
 from datetime import timezone, datetime
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -233,4 +235,81 @@ def create_position(pos: schemas.PositionCreate, db: Session = Depends(get_db),
     db.commit()
     db.refresh(new_pos)
     return new_pos
+# endregion
+
+# region Invitations & Audit Endpoints
+
+@app.post("/companies/invitations", response_model=schemas.InvitationResponse)
+def create_invitation(inv_data: schemas.InvitationCreate, db: Session = Depends(get_db),
+                      current_user: models.User = Depends(security.get_current_user)):
+    if current_user.role != models.RoleEnum.manager:
+        raise HTTPException(status_code=403, detail="Only managers can create invitations")
+
+    invite_code = secrets.token_hex(4).upper()
+
+    new_invite = models.Invitation(
+        code=invite_code,
+        company_id=current_user.company_id,
+        department_id=inv_data.department_id,
+        position_id=inv_data.position_id
+    )
+    db.add(new_invite)
+
+    log_entry = models.AuditLog(
+        company_id=current_user.company_id,
+        user_id=current_user.id,
+        action="CREATE_INVITATION",
+        details=f"Created invitation code {invite_code} for dept_id {inv_data.department_id}"
+    )
+    db.add(log_entry)
+
+    db.commit()
+    db.refresh(new_invite)
+    return new_invite
+
+
+@app.post("/companies/join")
+def join_company(join_req: schemas.JoinCompanyRequest, db: Session = Depends(get_db),
+                 current_user: models.User = Depends(security.get_current_user)):
+    if current_user.company_id is not None:
+        raise HTTPException(status_code=400, detail="You are already a member of a company")
+
+    invite = db.query(models.Invitation).filter(
+        models.Invitation.code == join_req.code.strip().upper(),
+        models.Invitation.is_used == False
+    ).first()
+
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invalid or expired invitation code")
+
+    current_user.role = models.RoleEnum.worker
+    current_user.company_id = invite.company_id
+    current_user.department_id = invite.department_id
+    current_user.position_id = invite.position_id
+
+    invite.is_used = True
+
+    log_entry = models.AuditLog(
+        company_id=invite.company_id,
+        user_id=current_user.id,
+        action="EMPLOYEE_JOINED",
+        details=f"User {current_user.email} joined company using code {invite.code}"
+    )
+    db.add(log_entry)
+
+    db.commit()
+    return {"status": "success", "detail": f"Successfully joined company ID {invite.company_id}"}
+
+
+@app.get("/companies/audit-logs", response_model=List[schemas.AuditLogResponse])
+def get_audit_logs(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    logs = db.query(models.AuditLog).filter(
+        models.AuditLog.company_id == current_user.company_id
+    ).order_by(models.AuditLog.created_at.desc()).all()
+
+    return [schemas.AuditLogResponse.from_orm_custom(log) for log in logs]
+
 # endregion
