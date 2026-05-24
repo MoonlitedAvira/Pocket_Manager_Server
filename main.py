@@ -1,21 +1,28 @@
 # main.py
+import asyncio
 import secrets
+import fcm
 
 from datetime import timezone, datetime
-
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
 from database import engine, Base, get_db
+from contextlib import asynccontextmanager
 
-import models, schemas, security, fcm
+import models, schemas, security, fcm, scheduler
 
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(scheduler.check_periodic_events_loop())
+    yield
+
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Pocket Manager API")
+app = FastAPI(title="Pocket Manager API", lifespan=lifespan)
 
 
 
@@ -88,6 +95,31 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db),
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
+
+    if new_task.assigned_user_id:
+        worker = db.query(models.User).filter(models.User.id == new_task.assigned_user_id).first()
+        if worker and worker.fcm_token:
+            fcm.send_push(
+                token=worker.fcm_token,
+                title="Новая задача 📝",
+                body=f"Руководитель назначил вам задачу: {new_task.title}",
+                data={"task_id": str(new_task.id)}
+            )
+
+    elif new_task.department_id:
+        workers = db.query(models.User).filter(
+            models.User.department_id == new_task.department_id,
+            models.User.id != current_user.id
+        ).all()
+        for worker in workers:
+            if worker.fcm_token:
+                fcm.send_push(
+                    token=worker.fcm_token,
+                    title="Новая задача отдела 👥",
+                    body=f"В вашем отделе появилась задача: {new_task.title}",
+                    data={"task_id": str(new_task.id)}
+                )
+
     return new_task
 
 
@@ -172,6 +204,25 @@ def get_san_results(
         .all()
     return results
 #endregion
+
+@app.post("/maslach-test", response_model=schemas.MaslachResponse)
+def save_maslach_test(test_data: schemas.MaslachCreate, db: Session = Depends(get_db),
+                      current_user: models.User = Depends(security.get_current_user)):
+    new_test = models.MaslachResult(**test_data.model_dump(), user_id=current_user.id)
+    db.add(new_test)
+    db.commit()
+    db.refresh(new_test)
+    return new_test
+
+
+@app.post("/munsterberg-test", response_model=schemas.MunsterbergResponse)
+def save_munsterberg_test(test_data: schemas.MunsterbergCreate, db: Session = Depends(get_db),
+                         current_user: models.User = Depends(security.get_current_user)):
+    new_test = models.MunsterbergResult(**test_data.model_dump(), user_id=current_user.id)
+    db.add(new_test)
+    db.commit()
+    db.refresh(new_test)
+    return new_test
 
 # region Sync
 @app.post("/sync", response_model=schemas.SyncResponse)

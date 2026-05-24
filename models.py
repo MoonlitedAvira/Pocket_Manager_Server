@@ -41,6 +41,9 @@ class User(Base, SyncMixin):
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     pomodoros: Mapped[list["PomodoroSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     san_results: Mapped[list["SanTestResult"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    maslach_results: Mapped[list["MaslachResult"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    munsterberg_results: Mapped[list["MunsterbergResult"]] = relationship(back_populates="user",
+                                                                          cascade="all, delete-orphan")
 
     company: Mapped["Company"] = relationship(back_populates="users", foreign_keys=[company_id])
     department: Mapped["Department"] = relationship(back_populates="users", foreign_keys=[department_id])
@@ -93,7 +96,15 @@ class Task(Base, SyncMixin):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    user: Mapped["User"] = relationship(back_populates="tasks")
+    start_execution_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    deadline: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    assigned_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=True)
+
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], back_populates="tasks")
+    assigned_user: Mapped["User"] = relationship("User", foreign_keys=[assigned_user_id])
+    department: Mapped["Department"] = relationship()
 
 class PomodoroSession(Base, SyncMixin):
     __tablename__ = "pomodoro_sessions"
@@ -117,6 +128,34 @@ class SanTestResult(Base, SyncMixin):
     score_n: Mapped[float] = mapped_column(nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="san_results")
+
+
+class MaslachResult(Base, SyncMixin):
+    __tablename__ = "maslach_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Три шкалы выгорания по Маслач
+    emotional_exhaustion: Mapped[float] = mapped_column(nullable=False)
+    depersonalization: Mapped[float] = mapped_column(nullable=False)
+    personal_accomplishment: Mapped[float] = mapped_column(nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="maslach_results")
+
+
+class MunsterbergResult(Base, SyncMixin):
+    __tablename__ = "munsterberg_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    correct_words: Mapped[int] = mapped_column(nullable=False)
+    time_spent_seconds: Mapped[int] = mapped_column(nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="munsterberg_results")
 
 #region Invitations & Audit
 class Invitation(Base, SyncMixin):

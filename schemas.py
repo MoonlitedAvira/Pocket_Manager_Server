@@ -23,7 +23,7 @@ class UserResponse(BaseModel):
 #endregion
 
 class FCMTokenUpdate(BaseModel):
-    fcm_token: s
+    fcm_token: str
 
 #region Token
 #Lmao region for 1 class
@@ -36,7 +36,10 @@ class Token(BaseModel):
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
-
+    start_execution_at: Optional[datetime] = None
+    deadline: Optional[datetime] = None
+    assigned_user_id: Optional[int] = None
+    department_id: Optional[int] = None
 
 class TaskResponse(BaseModel):
     id: int
@@ -46,6 +49,10 @@ class TaskResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_deleted: bool
+    start_execution_at: Optional[datetime]
+    deadline: Optional[datetime]
+    assigned_user_id: Optional[int]
+    department_id: Optional[int]
 
     model_config = ConfigDict(from_attributes=True)
 #endregion
@@ -87,6 +94,33 @@ class SanTestResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 #endregion
 
+class MaslachCreate(BaseModel):
+    emotional_exhaustion: float
+    depersonalization: float
+    personal_accomplishment: float
+
+class MaslachResponse(BaseModel):
+    id: int
+    date: datetime
+    emotional_exhaustion: float
+    depersonalization: float
+    personal_accomplishment: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MunsterbergCreate(BaseModel):
+    correct_words: int
+    time_spent_seconds: int
+
+class MunsterbergResponse(BaseModel):
+    id: int
+    date: datetime
+    correct_words: int
+    time_spent_seconds: int
+
+    model_config = ConfigDict(from_attributes=True)
+
 #region Sync
 class SyncTaskItem(BaseModel):
     id: Optional[int] = None
@@ -95,6 +129,10 @@ class SyncTaskItem(BaseModel):
     is_completed: bool
     is_deleted: bool
     updated_at: datetime
+    start_execution_at: Optional[datetime] = None
+    deadline: Optional[datetime] = None
+    assigned_user_id: Optional[int] = None
+    department_id: Optional[int] = None
 
 class SyncRequest(BaseModel):
     last_sync_at: Optional[datetime] = None
