@@ -7,9 +7,9 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
-
 from database import engine, Base, get_db
-import models, schemas, security
+
+import models, schemas, security, fcm
 
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
@@ -50,6 +50,35 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = security.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 #endregion
+
+# region FCM Notifications
+@app.put("/users/fcm-token")
+def update_fcm_token(token_data: schemas.FCMTokenUpdate, db: Session = Depends(get_db),
+                     current_user: models.User = Depends(security.get_current_user)):
+    current_user.fcm_token = token_data.fcm_token
+    db.commit()
+    return {"status": "success", "detail": "FCM token updated"}
+
+
+@app.post("/notifications/test")
+def test_notification(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if not current_user.fcm_token:
+        raise HTTPException(status_code=400, detail="FCM token not set for user")
+
+    success = fcm.send_push(
+        token=current_user.fcm_token,
+        title="Pocket Manager",
+        body="Второй этап успешно завершен! Уведомления работают.",
+        data={"action": "test_push"}
+    )
+
+    if success:
+        return {"status": "success", "detail": "Notification sent"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to send notification")
+
+
+# endregion
 
 #region To-Do List
 @app.post("/tasks", response_model=schemas.TaskResponse)

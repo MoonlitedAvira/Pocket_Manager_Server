@@ -32,6 +32,8 @@ class User(Base, SyncMixin):
     role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), default=RoleEnum.self_employed)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    fcm_token: Mapped[str] = mapped_column(String(255), nullable=True)
+
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=True)
     position_id: Mapped[int] = mapped_column(ForeignKey("positions.id"), nullable=True)

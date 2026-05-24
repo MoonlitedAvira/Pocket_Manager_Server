@@ -22,6 +22,9 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 #endregion
 
+class FCMTokenUpdate(BaseModel):
+    fcm_token: s
+
 #region Token
 #Lmao region for 1 class
 class Token(BaseModel):
