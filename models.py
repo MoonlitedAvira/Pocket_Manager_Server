@@ -38,7 +38,18 @@ class User(Base, SyncMixin):
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=True)
     position_id: Mapped[int] = mapped_column(ForeignKey("positions.id"), nullable=True)
 
-    tasks: Mapped[list["Task"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    tasks: Mapped[list["Task"]] = relationship(
+        "Task", 
+        back_populates="user", 
+        foreign_keys="[Task.user_id]", 
+        cascade="all, delete-orphan"
+    )
+    assigned_tasks: Mapped[list["Task"]] = relationship(
+        "Task", 
+        back_populates="assigned_user", 
+        foreign_keys="[Task.assigned_user_id]", 
+        cascade="all, delete-orphan"
+    )
     pomodoros: Mapped[list["PomodoroSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     san_results: Mapped[list["SanTestResult"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     maslach_results: Mapped[list["MaslachResult"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -102,8 +113,16 @@ class Task(Base, SyncMixin):
     assigned_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=True)
 
-    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], back_populates="tasks")
-    assigned_user: Mapped["User"] = relationship("User", foreign_keys=[assigned_user_id])
+    user: Mapped["User"] = relationship(
+        "User", 
+        back_populates="tasks", 
+        foreign_keys=[user_id]
+    )
+    assigned_user: Mapped["User"] = relationship(
+        "User", 
+        back_populates="assigned_tasks", 
+        foreign_keys=[assigned_user_id]
+    )
     department: Mapped["Department"] = relationship()
 
 class PomodoroSession(Base, SyncMixin):
