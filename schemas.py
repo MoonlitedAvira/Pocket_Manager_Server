@@ -10,6 +10,10 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
 
+class RecoverRequest(BaseModel):
+    email: EmailStr
+    password: str
+
 
 class UserResponse(BaseModel):
     id: int
@@ -225,3 +229,10 @@ class AuditLogResponse(BaseModel):
             created_at=log_obj.created_at
         )
 # endregion
+
+class AttendanceResponse(BaseModel):
+    id: int
+    user_id: int
+    date: datetime
+
+    model_config = ConfigDict(from_attributes=True)

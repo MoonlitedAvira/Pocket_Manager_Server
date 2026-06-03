@@ -12,12 +12,38 @@ from database import engine, Base, get_db
 from contextlib import asynccontextmanager
 
 import models, schemas, security, fcm, scheduler
+from datetime import timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+# cd Pocket_Manager_Server
+# . .venv/bin/activate
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+def cleanup_deleted_accounts():
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        six_months_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=180)
+        users_to_delete = db.query(models.User).filter(
+            models.User.is_deleted == True,
+            models.User.updated_at < six_months_ago
+        ).all()
+        for user in users_to_delete:
+            db.delete(user)
+        db.commit()
+    except Exception as e:
+        print(f"Cleanup error: {e}")
+    finally:
+        db.close()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     asyncio.create_task(scheduler.check_periodic_events_loop())
+    
+    apscheduler = AsyncIOScheduler()
+    apscheduler.add_job(cleanup_deleted_accounts, 'cron', hour=0, minute=0)
+    apscheduler.start()
+    
     yield
 
 Base.metadata.create_all(bind=engine)
@@ -52,10 +78,52 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     # OAuth2PasswordRequestForm использует поле username по стандарту, мы передаем туда email
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+        
+    if user.is_deleted:
+        raise HTTPException(status_code=403, detail="Account is deleted. Restoration available.")
 
     access_token = security.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/users/recover", response_model=schemas.Token)
+def recover_user(req: schemas.RecoverRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == req.email).first()
+    if not user or not security.verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    
+    if not user.is_deleted:
+        raise HTTPException(status_code=400, detail="User is not deleted")
+        
+    user.is_deleted = False
+    user.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    
+    access_token = security.create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.delete("/users/me")
+def delete_user(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    current_user.is_deleted = True
+    current_user.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    return {"detail": "User marked as deleted"}
+
+@app.get("/users/me", response_model=schemas.UserResponse)
+def get_user_me(current_user: models.User = Depends(security.get_current_user)):
+    return current_user
+
+@app.post("/users/attendance", response_model=schemas.AttendanceResponse)
+def check_in(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    new_att = models.Attendance(user_id=current_user.id)
+    db.add(new_att)
+    db.commit()
+    db.refresh(new_att)
+    return new_att
+
+@app.get("/users/attendance", response_model=List[schemas.AttendanceResponse])
+def get_attendance(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    return db.query(models.Attendance).filter(models.Attendance.user_id == current_user.id).all()
 #endregion
 
 # region FCM Notifications

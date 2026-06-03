@@ -201,3 +201,12 @@ class AuditLog(Base):
 
     user: Mapped["User"] = relationship()
 #endregion
+
+class Attendance(Base, SyncMixin):
+    __tablename__ = "attendances"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user: Mapped["User"] = relationship()
