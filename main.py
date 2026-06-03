@@ -315,6 +315,18 @@ def create_position(pos: schemas.PositionCreate, db: Session = Depends(get_db),
     db.commit()
     db.refresh(new_pos)
     return new_pos
+
+@app.get("/departments", response_model=List[schemas.DepartmentResponse])
+def get_departments(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if not current_user.company_id:
+        return []
+    return db.query(models.Department).filter(models.Department.company_id == current_user.company_id).all()
+
+@app.get("/users", response_model=List[schemas.UserResponse])
+def get_users(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if not current_user.company_id:
+        return []
+    return db.query(models.User).filter(models.User.company_id == current_user.company_id).all()
 # endregion
 
 # region Invitations & Audit Endpoints
