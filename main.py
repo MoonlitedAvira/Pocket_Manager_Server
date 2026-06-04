@@ -350,13 +350,21 @@ def sync_data(sync_req: schemas.SyncRequest, db: Session = Depends(get_db),
                     db_task.description = client_task.description
                     db_task.is_completed = client_task.is_completed
                     db_task.is_deleted = client_task.is_deleted
+                    db_task.start_execution_at = client_task.start_execution_at
+                    db_task.deadline = client_task.deadline
+                    db_task.assigned_user_id = client_task.assigned_user_id
+                    db_task.department_id = client_task.department_id
         else:
             new_task = models.Task(
                 user_id=current_user.id,
                 title=client_task.title,
                 description=client_task.description,
                 is_completed=client_task.is_completed,
-                is_deleted=client_task.is_deleted
+                is_deleted=client_task.is_deleted,
+                start_execution_at=client_task.start_execution_at,
+                deadline=client_task.deadline,
+                assigned_user_id=client_task.assigned_user_id,
+                department_id=client_task.department_id
             )
             db.add(new_task)
 
