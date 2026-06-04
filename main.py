@@ -19,6 +19,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 # cd Pocket_Manager_Server
 # . .venv/bin/activate
 # uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# tail -f /var/log/pocketmanager.log
 
 def cleanup_deleted_accounts():
     from database import SessionLocal
@@ -71,7 +72,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return schemas.UserResponse.from_orm_custom(new_user)
 
 
 @app.post("/auth/login", response_model=schemas.Token)
@@ -112,7 +113,7 @@ def delete_user(db: Session = Depends(get_db), current_user: models.User = Depen
 
 @app.get("/users/me", response_model=schemas.UserResponse)
 def get_user_me(current_user: models.User = Depends(security.get_current_user)):
-    return current_user
+    return schemas.UserResponse.from_orm_custom(current_user)
 
 @app.post("/users/attendance", response_model=schemas.AttendanceResponse)
 def check_in(att_data: schemas.AttendanceCreate, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
@@ -297,6 +298,16 @@ def save_maslach_test(test_data: schemas.MaslachCreate, db: Session = Depends(ge
     db.refresh(new_test)
     return new_test
 
+@app.get("/maslach-test", response_model=List[schemas.MaslachResponse])
+def get_maslach_results(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    results = db.query(models.MaslachResult)\
+        .filter(models.MaslachResult.user_id == current_user.id)\
+        .order_by(models.MaslachResult.date.desc())\
+        .all()
+    return results
 
 @app.post("/munsterberg-test", response_model=schemas.MunsterbergResponse)
 def save_munsterberg_test(test_data: schemas.MunsterbergCreate, db: Session = Depends(get_db),
@@ -306,6 +317,17 @@ def save_munsterberg_test(test_data: schemas.MunsterbergCreate, db: Session = De
     db.commit()
     db.refresh(new_test)
     return new_test
+
+@app.get("/munsterberg-test", response_model=List[schemas.MunsterbergResponse])
+def get_munsterberg_results(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    results = db.query(models.MunsterbergResult)\
+        .filter(models.MunsterbergResult.user_id == current_user.id)\
+        .order_by(models.MunsterbergResult.date.desc())\
+        .all()
+    return results
 
 # region Sync
 @app.post("/sync", response_model=schemas.SyncResponse)
@@ -409,7 +431,8 @@ def get_departments(db: Session = Depends(get_db), current_user: models.User = D
 def get_users(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
     if not current_user.company_id:
         return []
-    return db.query(models.User).filter(models.User.company_id == current_user.company_id).all()
+    users = db.query(models.User).filter(models.User.company_id == current_user.company_id).all()
+    return [schemas.UserResponse.from_orm_custom(u) for u in users]
 # endregion
 
 # region Invitations & Audit Endpoints

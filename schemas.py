@@ -25,6 +25,18 @@ class UserResponse(BaseModel):
     company_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_orm_custom(cls, user_obj):
+        return cls(
+            id=user_obj.id,
+            email=user_obj.email,
+            role=user_obj.role,
+            company_id=user_obj.company_id,
+            department_id=user_obj.department_id,
+            position_id=user_obj.position_id,
+            company_name=user_obj.company_name
+        )
 #endregion
 
 class FCMTokenUpdate(BaseModel):
