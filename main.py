@@ -6,6 +6,7 @@ import fcm
 from datetime import timezone, datetime
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 from typing import List
 from database import engine, Base, get_db
@@ -114,8 +115,8 @@ def get_user_me(current_user: models.User = Depends(security.get_current_user)):
     return current_user
 
 @app.post("/users/attendance", response_model=schemas.AttendanceResponse)
-def check_in(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
-    new_att = models.Attendance(user_id=current_user.id)
+def check_in(att_data: schemas.AttendanceCreate, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    new_att = models.Attendance(user_id=current_user.id, action_type=att_data.action_type)
     db.add(new_att)
     db.commit()
     db.refresh(new_att)
@@ -194,7 +195,21 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db),
 @app.get("/tasks", response_model=List[schemas.TaskResponse])
 def get_tasks(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
     return db.query(models.Task).filter(
+        or_(
+            and_(models.Task.user_id == current_user.id, models.Task.assigned_user_id == None, models.Task.department_id == None),
+            models.Task.assigned_user_id == current_user.id,
+            and_(models.Task.department_id == current_user.department_id, current_user.department_id != None)
+        ),
+        models.Task.is_deleted == False
+    ).all()
+
+@app.get("/tasks/delegated", response_model=List[schemas.TaskResponse])
+def get_delegated_tasks(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Only managers can see delegated tasks")
+    return db.query(models.Task).filter(
         models.Task.user_id == current_user.id,
+        or_(models.Task.assigned_user_id != None, models.Task.department_id != None),
         models.Task.is_deleted == False
     ).all()
 
@@ -426,6 +441,17 @@ def create_invitation(inv_data: schemas.InvitationCreate, db: Session = Depends(
     db.commit()
     db.refresh(new_invite)
     return new_invite
+
+@app.delete("/companies/invitations/{code}")
+def delete_invitation(code: str, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if current_user.role != models.RoleEnum.manager:
+        raise HTTPException(status_code=403, detail="Only managers can delete invitations")
+    invite = db.query(models.Invitation).filter(models.Invitation.code == code.upper(), models.Invitation.company_id == current_user.company_id).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    db.delete(invite)
+    db.commit()
+    return {"detail": "Invitation deleted"}
 
 
 @app.post("/companies/join")

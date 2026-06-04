@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     company_id: Optional[int] = None
     department_id: Optional[int] = None
     position_id: Optional[int] = None
+    company_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 #endregion
@@ -230,9 +231,13 @@ class AuditLogResponse(BaseModel):
         )
 # endregion
 
+class AttendanceCreate(BaseModel):
+    action_type: str = "check_in"
+
 class AttendanceResponse(BaseModel):
     id: int
     user_id: int
     date: datetime
+    action_type: str
 
     model_config = ConfigDict(from_attributes=True)

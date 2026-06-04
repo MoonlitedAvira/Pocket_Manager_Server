@@ -60,6 +60,10 @@ class User(Base, SyncMixin):
     department: Mapped["Department"] = relationship(back_populates="users", foreign_keys=[department_id])
     position: Mapped["Position"] = relationship(back_populates="users", foreign_keys=[position_id])
 
+    @property
+    def company_name(self) -> str | None:
+        return self.company.name if self.company else None
+
 #region Company Structure
 class Company(Base, SyncMixin):
     __tablename__ = "companies"
@@ -208,5 +212,6 @@ class Attendance(Base, SyncMixin):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    action_type: Mapped[str] = mapped_column(String(50), default="check_in")
 
     user: Mapped["User"] = relationship()
