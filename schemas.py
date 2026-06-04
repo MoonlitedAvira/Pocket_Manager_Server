@@ -60,6 +60,7 @@ class TaskCreate(BaseModel):
 
 class TaskResponse(BaseModel):
     id: int
+    user_id: int
     title: str
     description: Optional[str]
     is_completed: bool
@@ -71,7 +72,8 @@ class TaskResponse(BaseModel):
     assigned_user_id: Optional[int]
     department_id: Optional[int]
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True
 #endregion
 
 #region Pomodoro

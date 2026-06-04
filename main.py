@@ -206,7 +206,8 @@ def get_tasks(db: Session = Depends(get_db), current_user: models.User = Depends
 
 @app.get("/tasks/delegated", response_model=List[schemas.TaskResponse])
 def get_delegated_tasks(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
-    if current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+    user_role_val = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if user_role_val not in [models.RoleEnum.manager.value, models.RoleEnum.director.value]:
         raise HTTPException(status_code=403, detail="Only managers can see delegated tasks")
     return db.query(models.Task).filter(
         models.Task.user_id == current_user.id,
@@ -370,7 +371,13 @@ def sync_data(sync_req: schemas.SyncRequest, db: Session = Depends(get_db),
 
     db.commit()
 
-    query = db.query(models.Task).filter(models.Task.user_id == current_user.id)
+    query = db.query(models.Task).filter(
+        or_(
+            models.Task.user_id == current_user.id,
+            models.Task.assigned_user_id == current_user.id,
+            and_(models.Task.department_id == current_user.department_id, current_user.department_id != None)
+        )
+    )
 
     if sync_req.last_sync_at:
         last_sync_naive = sync_req.last_sync_at.replace(tzinfo=None)
