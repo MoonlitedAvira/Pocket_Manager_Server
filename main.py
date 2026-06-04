@@ -522,3 +522,32 @@ def get_audit_logs(db: Session = Depends(get_db), current_user: models.User = De
     return [schemas.AuditLogResponse.from_orm_custom(log) for log in logs]
 
 # endregion
+
+# region Debug Endpoints
+from sqlalchemy import text
+
+@app.post("/debug/clear-users")
+def debug_clear_users(secret: str, db: Session = Depends(get_db)):
+    if secret != "debug123":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    db.execute(text("TRUNCATE TABLE users, companies CASCADE"))
+    db.commit()
+    return {"status": "success", "detail": "All users and related data deleted"}
+
+@app.post("/debug/clear-timers")
+def debug_clear_timers(secret: str, db: Session = Depends(get_db)):
+    if secret != "debug123":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    db.execute(text("TRUNCATE TABLE pomodoro_sessions CASCADE"))
+    db.commit()
+    return {"status": "success", "detail": "All timers deleted"}
+
+@app.post("/debug/clear-tasks")
+def debug_clear_tasks(secret: str, db: Session = Depends(get_db)):
+    if secret != "debug123":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    db.execute(text("TRUNCATE TABLE tasks CASCADE"))
+    db.commit()
+    return {"status": "success", "detail": "All tasks deleted"}
+# endregion
