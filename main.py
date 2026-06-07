@@ -349,26 +349,25 @@ def sync_data(sync_req: schemas.SyncRequest, db: Session = Depends(get_db),
             ).first()
 
             if db_task:
-                if client_time > db_task.updated_at:
-                    if db_task.user_id == current_user.id:
-                        db_task.title = client_task.title
-                        db_task.description = client_task.description
-                        db_task.is_completed = client_task.is_completed
-                        db_task.is_deleted = client_task.is_deleted
-                        db_task.start_execution_at = client_task.start_execution_at
-                        db_task.deadline = client_task.deadline
-                        db_task.assigned_user_id = client_task.assigned_user_id
-                        db_task.department_id = client_task.department_id
-                    elif db_task.assigned_user_id == current_user.id:
-                        if not db_task.is_completed and client_task.is_completed:
-                            manager = db.query(models.User).filter(models.User.id == db_task.user_id).first()
-                            if manager and manager.fcm_token:
-                                fcm.send_push(
-                                    manager.fcm_token,
-                                    "Задача выполнена!",
-                                    f"Сотрудник {current_user.email} выполнил задачу: {db_task.title}"
-                                )
-                        db_task.is_completed = client_task.is_completed
+                if db_task.user_id == current_user.id:
+                    db_task.title = client_task.title
+                    db_task.description = client_task.description
+                    db_task.is_completed = client_task.is_completed
+                    db_task.is_deleted = client_task.is_deleted
+                    db_task.start_execution_at = client_task.start_execution_at
+                    db_task.deadline = client_task.deadline
+                    db_task.assigned_user_id = client_task.assigned_user_id
+                    db_task.department_id = client_task.department_id
+                elif db_task.assigned_user_id == current_user.id:
+                    if not db_task.is_completed and client_task.is_completed:
+                        manager = db.query(models.User).filter(models.User.id == db_task.user_id).first()
+                        if manager and manager.fcm_token:
+                            fcm.send_push(
+                                manager.fcm_token,
+                                "Задача выполнена!",
+                                f"Сотрудник {current_user.email} выполнил задачу: {db_task.title}"
+                            )
+                    db_task.is_completed = client_task.is_completed
         else:
             new_task = models.Task(
                 user_id=current_user.id,
