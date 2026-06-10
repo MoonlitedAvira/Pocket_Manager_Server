@@ -154,6 +154,20 @@ def test_notification(db: Session = Depends(get_db), current_user: models.User =
     else:
         raise HTTPException(status_code=500, detail="Failed to send notification")
 
+@app.post("/debug/reset_test")
+def reset_all_tests(db: Session = Depends(get_db)):
+    users = db.query(models.User).filter(models.User.fcm_token.isnot(None)).all()
+    count = 0
+    for user in users:
+        success = fcm.send_push(
+            token=user.fcm_token,
+            title="Тесты сброшены",
+            body="Режим отладки: вы можете снова пройти все психологические тесты прямо сейчас!",
+            data={"action": "reset_tests"}
+        )
+        if success:
+            count += 1
+    return {"status": "success", "users_notified": count}
 
 # endregion
 
