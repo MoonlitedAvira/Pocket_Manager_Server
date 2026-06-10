@@ -169,6 +169,93 @@ def reset_all_tests(db: Session = Depends(get_db)):
             count += 1
     return {"status": "success", "users_notified": count}
 
+import random
+
+@app.post("/debug/mock_tests")
+def mock_all_tests(db: Session = Depends(get_db)):
+    users = db.query(models.User).all()
+    
+    # 1. Delete old test data
+    db.query(models.SanTestResult).delete()
+    db.query(models.MaslachResult).delete()
+    db.query(models.MunsterbergResult).delete()
+    db.commit()
+    
+    # 2. Generate new data
+    now = datetime.now(timezone.utc)
+    
+    for user in users:
+        # San (56 records, 2 per day for 28 days)
+        for i in range(28):
+            day_date = now - timedelta(days=27 - i)
+            # Two records per day
+            for j in range(2):
+                h = random.randint(8, 20)
+                m = random.randint(0, 59)
+                record_date = day_date.replace(hour=h, minute=m)
+                san = models.SanTestResult(
+                    user_id=user.id,
+                    date=record_date,
+                    score_s=random.uniform(2.0, 7.0),
+                    score_a=random.uniform(2.0, 7.0),
+                    score_n=random.uniform(2.0, 7.0)
+                )
+                db.add(san)
+                
+        # Maslach & Munsterberg (3 records over 28 days)
+        for offset in [0, 14, 27]:
+            record_date = now - timedelta(days=27 - offset)
+            maslach = models.MaslachResult(
+                user_id=user.id,
+                date=record_date,
+                emotional_exhaustion=random.uniform(5.0, 40.0),
+                depersonalization=random.uniform(2.0, 25.0),
+                personal_accomplishment=random.uniform(15.0, 45.0)
+            )
+            db.add(maslach)
+            munsterberg = models.MunsterbergResult(
+                user_id=user.id,
+                date=record_date,
+                correct_words=random.randint(1, 5),
+                time_spent_seconds=random.randint(30, 120)
+            )
+            db.add(munsterberg)
+            
+    db.commit()
+    
+    count = 0
+    for user in users:
+        if user.fcm_token:
+            success = fcm.send_push(
+                token=user.fcm_token,
+                title="Тесты обновлены (Mock)",
+                body="Сгенерированы случайные данные тестов за месяц.",
+                data={"action": "reset_tests"}
+            )
+            if success: count += 1
+                
+    return {"status": "success", "users_notified": count, "message": "Mock data generated for all users"}
+
+@app.post("/debug/delete_tests")
+def delete_all_tests(db: Session = Depends(get_db)):
+    db.query(models.SanTestResult).delete()
+    db.query(models.MaslachResult).delete()
+    db.query(models.MunsterbergResult).delete()
+    db.commit()
+    
+    users = db.query(models.User).filter(models.User.fcm_token.isnot(None)).all()
+    count = 0
+    for user in users:
+        success = fcm.send_push(
+            token=user.fcm_token,
+            title="Тесты очищены",
+            body="Ваши результаты тестов были удалены.",
+            data={"action": "reset_tests"}
+        )
+        if success: count += 1
+            
+    return {"status": "success", "users_notified": count, "message": "All test results deleted"}
+
 # endregion
 
 #region To-Do List
