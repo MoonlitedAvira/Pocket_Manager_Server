@@ -217,7 +217,8 @@ def mock_all_tests(db: Session = Depends(get_db)):
                 user_id=user.id,
                 date=record_date,
                 correct_words=random.randint(1, 5),
-                time_spent_seconds=random.randint(30, 120)
+                time_spent_seconds=random.randint(30, 120),
+                errors=random.randint(0, 3)
             )
             db.add(munsterberg)
             
@@ -562,6 +563,89 @@ def get_users(db: Session = Depends(get_db), current_user: models.User = Depends
         return []
     users = db.query(models.User).filter(models.User.company_id == current_user.company_id).all()
     return [schemas.UserResponse.from_orm_custom(u) for u in users]
+
+@app.put("/positions/{pos_id}", response_model=schemas.PositionResponse)
+def update_position(pos_id: int, pos: schemas.PositionUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    position = db.query(models.Position).filter(models.Position.id == pos_id).first()
+    if not position or position.department.company_id != current_user.company_id or current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    if pos.name is not None:
+        position.name = pos.name
+    if pos.hierarchy_level is not None:
+        position.hierarchy_level = pos.hierarchy_level
+        
+    db.commit()
+    db.refresh(position)
+    return position
+
+@app.put("/users/{user_id}", response_model=schemas.UserResponse)
+def update_user(user_id: int, user_update: schemas.WorkerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    target_user = db.query(models.User).filter(models.User.id == user_id, models.User.company_id == current_user.company_id).first()
+    if not target_user or current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Manager can only edit workers in their department unless they are director
+    if current_user.role == models.RoleEnum.manager and current_user.department_id != target_user.department_id:
+        raise HTTPException(status_code=403, detail="Cannot manage users outside your department")
+
+    if user_update.department_id is not None:
+        target_user.department_id = user_update.department_id
+    if user_update.position_id is not None:
+        target_user.position_id = user_update.position_id
+    if user_update.role is not None:
+        target_user.role = user_update.role
+
+    db.commit()
+    db.refresh(target_user)
+    return schemas.UserResponse.from_orm_custom(target_user)
+
+@app.delete("/users/{user_id}")
+def delete_user_from_company(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    target_user = db.query(models.User).filter(models.User.id == user_id, models.User.company_id == current_user.company_id).first()
+    if not target_user or current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    if current_user.role == models.RoleEnum.manager and current_user.department_id != target_user.department_id:
+        raise HTTPException(status_code=403, detail="Cannot kick users outside your department")
+
+    target_user.company_id = None
+    target_user.department_id = None
+    target_user.position_id = None
+    target_user.role = models.RoleEnum.self_employed
+    
+    db.commit()
+    return {"message": "User removed from company"}
+
+@app.get("/users/{user_id}/stats", response_model=schemas.WorkerStatsResponse)
+def get_user_stats(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    target_user = db.query(models.User).filter(models.User.id == user_id, models.User.company_id == current_user.company_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    if current_user.role == models.RoleEnum.manager:
+        if current_user.department_id != target_user.department_id:
+            raise HTTPException(status_code=403, detail="Cannot view stats of users outside your department")
+        
+        # Check hierarchy
+        current_pos = current_user.position
+        target_pos = target_user.position
+        
+        curr_lvl = current_pos.hierarchy_level if current_pos else -1
+        tgt_lvl = target_pos.hierarchy_level if target_pos else -1
+        
+        if curr_lvl <= tgt_lvl and current_user.id != target_user.id:
+             raise HTTPException(status_code=403, detail="Cannot view stats of users higher or equal in hierarchy")
+
+    return schemas.WorkerStatsResponse(
+        user_id=user_id,
+        san_results=target_user.san_results,
+        maslach_results=target_user.maslach_results,
+        munsterberg_results=target_user.munsterberg_results
+    )
 # endregion
 
 # region Invitations & Audit Endpoints

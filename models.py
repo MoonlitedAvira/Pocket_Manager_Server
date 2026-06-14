@@ -95,6 +95,7 @@ class Position(Base, SyncMixin):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    hierarchy_level: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
     department: Mapped["Department"] = relationship(back_populates="positions")
     users: Mapped[list["User"]] = relationship(back_populates="position")
@@ -177,6 +178,7 @@ class MunsterbergResult(Base, SyncMixin):
 
     correct_words: Mapped[int] = mapped_column(nullable=False)
     time_spent_seconds: Mapped[int] = mapped_column(nullable=False)
+    errors: Mapped[int] = mapped_column(Integer, server_default="0", default=0, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="munsterberg_results")
 

@@ -131,12 +131,14 @@ class MaslachResponse(BaseModel):
 class MunsterbergCreate(BaseModel):
     correct_words: int
     time_spent_seconds: int
+    errors: int = 0
 
 class MunsterbergResponse(BaseModel):
     id: int
     date: datetime
     correct_words: int
     time_spent_seconds: int
+    errors: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -176,6 +178,21 @@ class CompanyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PositionCreate(BaseModel):
+    name: str
+    department_id: int
+    hierarchy_level: int = 0
+
+class PositionResponse(BaseModel):
+    id: int
+    name: str
+    department_id: int
+    hierarchy_level: int
+    updated_at: datetime
+    is_deleted: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
 class DepartmentCreate(BaseModel):
     name: str
     company_id: int
@@ -186,22 +203,24 @@ class DepartmentResponse(BaseModel):
     company_id: int
     updated_at: datetime
     is_deleted: bool
+    positions: list[PositionResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 
+class PositionUpdate(BaseModel):
+    name: Optional[str] = None
+    hierarchy_level: Optional[int] = None
 
-class PositionCreate(BaseModel):
-    name: str
-    department_id: int
+class WorkerUpdate(BaseModel):
+    department_id: Optional[int] = None
+    position_id: Optional[int] = None
+    role: Optional[models.RoleEnum] = None
 
-class PositionResponse(BaseModel):
-    id: int
-    name: str
-    department_id: int
-    updated_at: datetime
-    is_deleted: bool
-
-    model_config = ConfigDict(from_attributes=True)
+class WorkerStatsResponse(BaseModel):
+    user_id: int
+    san_results: list[SanTestResponse] = []
+    maslach_results: list[MaslachResponse] = []
+    munsterberg_results: list[MunsterbergResponse] = []
 #endregion
 
 # region Invitations & Audit
