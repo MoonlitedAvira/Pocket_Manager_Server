@@ -175,10 +175,11 @@ import random
 def mock_all_tests(db: Session = Depends(get_db)):
     users = db.query(models.User).all()
     
-    # 1. Delete old test data
-    db.query(models.SanTestResult).delete()
-    db.query(models.MaslachResult).delete()
-    db.query(models.MunsterbergResult).delete()
+    # 1. Delete old test data (Soft Delete)
+    from sqlalchemy.sql import func
+    db.query(models.SanTestResult).update({"is_deleted": True, "updated_at": func.now()})
+    db.query(models.MaslachResult).update({"is_deleted": True, "updated_at": func.now()})
+    db.query(models.MunsterbergResult).update({"is_deleted": True, "updated_at": func.now()})
     db.commit()
     
     # 2. Generate new data
@@ -229,8 +230,6 @@ def mock_all_tests(db: Session = Depends(get_db)):
         if user.fcm_token:
             success = fcm.send_push(
                 token=user.fcm_token,
-                title="Тесты обновлены (Mock)",
-                body="Сгенерированы случайные данные тестов за месяц.",
                 data={"action": "reset_tests"}
             )
             if success: count += 1
@@ -239,9 +238,10 @@ def mock_all_tests(db: Session = Depends(get_db)):
 
 @app.post("/debug/delete_tests")
 def delete_all_tests(db: Session = Depends(get_db)):
-    db.query(models.SanTestResult).delete()
-    db.query(models.MaslachResult).delete()
-    db.query(models.MunsterbergResult).delete()
+    from sqlalchemy.sql import func
+    db.query(models.SanTestResult).update({"is_deleted": True, "updated_at": func.now()})
+    db.query(models.MaslachResult).update({"is_deleted": True, "updated_at": func.now()})
+    db.query(models.MunsterbergResult).update({"is_deleted": True, "updated_at": func.now()})
     db.commit()
     
     users = db.query(models.User).filter(models.User.fcm_token.isnot(None)).all()
@@ -249,8 +249,6 @@ def delete_all_tests(db: Session = Depends(get_db)):
     for user in users:
         success = fcm.send_push(
             token=user.fcm_token,
-            title="Тесты очищены",
-            body="Ваши результаты тестов были удалены.",
             data={"action": "reset_tests"}
         )
         if success: count += 1
