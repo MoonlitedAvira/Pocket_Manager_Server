@@ -438,9 +438,9 @@ def sync_data(sync_req: schemas.SyncRequest, db: Session = Depends(get_db),
               current_user: models.User = Depends(security.get_current_user)):
     now = datetime.now(timezone.utc)
 
+    # Sync Tasks
     for client_task in sync_req.tasks:
         client_time = client_task.updated_at.replace(tzinfo=None)
-
         if client_task.id:
             db_task = db.query(models.Task).filter(
                 models.Task.id == client_task.id,
@@ -484,25 +484,116 @@ def sync_data(sync_req: schemas.SyncRequest, db: Session = Depends(get_db),
             )
             db.add(new_task)
 
+    # Sync Attendances
+    for client_att in sync_req.attendances:
+        if client_att.id:
+            db_att = db.query(models.Attendance).filter(models.Attendance.id == client_att.id, models.Attendance.user_id == current_user.id).first()
+            if db_att:
+                db_att.action_type = client_att.action_type
+                db_att.date = client_att.date.replace(tzinfo=None)
+                db_att.is_deleted = client_att.is_deleted
+        else:
+            new_att = models.Attendance(
+                user_id=current_user.id,
+                date=client_att.date.replace(tzinfo=None),
+                action_type=client_att.action_type,
+                is_deleted=client_att.is_deleted
+            )
+            db.add(new_att)
+
+    # Sync San Tests
+    for client_san in sync_req.san_results:
+        if client_san.id:
+            db_san = db.query(models.SanTestResult).filter(models.SanTestResult.id == client_san.id, models.SanTestResult.user_id == current_user.id).first()
+            if db_san:
+                db_san.score_s = client_san.score_s
+                db_san.score_a = client_san.score_a
+                db_san.score_n = client_san.score_n
+                db_san.date = client_san.date.replace(tzinfo=None)
+                db_san.is_deleted = client_san.is_deleted
+        else:
+            new_san = models.SanTestResult(
+                user_id=current_user.id,
+                date=client_san.date.replace(tzinfo=None),
+                score_s=client_san.score_s,
+                score_a=client_san.score_a,
+                score_n=client_san.score_n,
+                is_deleted=client_san.is_deleted
+            )
+            db.add(new_san)
+
+    # Sync Maslach Tests
+    for client_maslach in sync_req.maslach_results:
+        if client_maslach.id:
+            db_maslach = db.query(models.MaslachResult).filter(models.MaslachResult.id == client_maslach.id, models.MaslachResult.user_id == current_user.id).first()
+            if db_maslach:
+                db_maslach.emotional_exhaustion = client_maslach.emotional_exhaustion
+                db_maslach.depersonalization = client_maslach.depersonalization
+                db_maslach.personal_accomplishment = client_maslach.personal_accomplishment
+                db_maslach.date = client_maslach.date.replace(tzinfo=None)
+                db_maslach.is_deleted = client_maslach.is_deleted
+        else:
+            new_maslach = models.MaslachResult(
+                user_id=current_user.id,
+                date=client_maslach.date.replace(tzinfo=None),
+                emotional_exhaustion=client_maslach.emotional_exhaustion,
+                depersonalization=client_maslach.depersonalization,
+                personal_accomplishment=client_maslach.personal_accomplishment,
+                is_deleted=client_maslach.is_deleted
+            )
+            db.add(new_maslach)
+
+    # Sync Munsterberg Tests
+    for client_munsterberg in sync_req.munsterberg_results:
+        if client_munsterberg.id:
+            db_munsterberg = db.query(models.MunsterbergResult).filter(models.MunsterbergResult.id == client_munsterberg.id, models.MunsterbergResult.user_id == current_user.id).first()
+            if db_munsterberg:
+                db_munsterberg.correct_words = client_munsterberg.correct_words
+                db_munsterberg.time_spent_seconds = client_munsterberg.time_spent_seconds
+                db_munsterberg.errors = client_munsterberg.errors
+                db_munsterberg.date = client_munsterberg.date.replace(tzinfo=None)
+                db_munsterberg.is_deleted = client_munsterberg.is_deleted
+        else:
+            new_munsterberg = models.MunsterbergResult(
+                user_id=current_user.id,
+                date=client_munsterberg.date.replace(tzinfo=None),
+                correct_words=client_munsterberg.correct_words,
+                time_spent_seconds=client_munsterberg.time_spent_seconds,
+                errors=client_munsterberg.errors,
+                is_deleted=client_munsterberg.is_deleted
+            )
+            db.add(new_munsterberg)
+
     db.commit()
 
-    query = db.query(models.Task).filter(
+    # Queries
+    query_tasks = db.query(models.Task).filter(
         or_(
             models.Task.user_id == current_user.id,
             models.Task.assigned_user_id == current_user.id,
             and_(models.Task.department_id == current_user.department_id, current_user.department_id != None)
         )
     )
+    query_attendances = db.query(models.Attendance).filter(models.Attendance.user_id == current_user.id)
+    query_san = db.query(models.SanTestResult).filter(models.SanTestResult.user_id == current_user.id)
+    query_maslach = db.query(models.MaslachResult).filter(models.MaslachResult.user_id == current_user.id)
+    query_munsterberg = db.query(models.MunsterbergResult).filter(models.MunsterbergResult.user_id == current_user.id)
 
     if sync_req.last_sync_at:
         last_sync_naive = sync_req.last_sync_at.replace(tzinfo=None)
-        query = query.filter(models.Task.updated_at > last_sync_naive)
-
-    server_tasks = query.all()
+        query_tasks = query_tasks.filter(models.Task.updated_at > last_sync_naive)
+        query_attendances = query_attendances.filter(models.Attendance.updated_at > last_sync_naive)
+        query_san = query_san.filter(models.SanTestResult.updated_at > last_sync_naive)
+        query_maslach = query_maslach.filter(models.MaslachResult.updated_at > last_sync_naive)
+        query_munsterberg = query_munsterberg.filter(models.MunsterbergResult.updated_at > last_sync_naive)
 
     return {
         "current_sync_at": now,
-        "tasks": server_tasks
+        "tasks": query_tasks.all(),
+        "attendances": query_attendances.all(),
+        "san_results": query_san.all(),
+        "maslach_results": query_maslach.all(),
+        "munsterberg_results": query_munsterberg.all()
     }
 # endregion
 

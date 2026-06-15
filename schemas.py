@@ -155,13 +155,55 @@ class SyncTaskItem(BaseModel):
     assigned_user_id: Optional[int] = None
     department_id: Optional[int] = None
 
+class SyncAttendanceItem(BaseModel):
+    id: Optional[int] = None
+    date: datetime
+    action_type: str
+    updated_at: datetime
+    is_deleted: bool
+
+class SyncSanItem(BaseModel):
+    id: Optional[int] = None
+    date: datetime
+    score_s: float
+    score_a: float
+    score_n: float
+    updated_at: datetime
+    is_deleted: bool
+
+class SyncMaslachItem(BaseModel):
+    id: Optional[int] = None
+    date: datetime
+    emotional_exhaustion: float
+    depersonalization: float
+    personal_accomplishment: float
+    updated_at: datetime
+    is_deleted: bool
+
+class SyncMunsterbergItem(BaseModel):
+    id: Optional[int] = None
+    date: datetime
+    correct_words: int
+    time_spent_seconds: int
+    errors: int
+    updated_at: datetime
+    is_deleted: bool
+
 class SyncRequest(BaseModel):
     last_sync_at: Optional[datetime] = None
     tasks: list[SyncTaskItem] = []
+    attendances: list[SyncAttendanceItem] = []
+    san_results: list[SyncSanItem] = []
+    maslach_results: list[SyncMaslachItem] = []
+    munsterberg_results: list[SyncMunsterbergItem] = []
 
 class SyncResponse(BaseModel):
     current_sync_at: datetime
-    tasks: list[TaskResponse]
+    tasks: list[TaskResponse] = []
+    attendances: list['AttendanceResponse'] = []
+    san_results: list[SanTestResponse] = []
+    maslach_results: list[MaslachResponse] = []
+    munsterberg_results: list[MunsterbergResponse] = []
 #endregion
 
 #region Company Structure
@@ -272,5 +314,7 @@ class AttendanceResponse(BaseModel):
     user_id: int
     date: datetime
     action_type: str
+    updated_at: datetime
+    is_deleted: bool
 
     model_config = ConfigDict(from_attributes=True)
