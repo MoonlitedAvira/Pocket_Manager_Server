@@ -769,6 +769,14 @@ def create_invitation(inv_data: schemas.InvitationCreate, db: Session = Depends(
     db.refresh(new_invite)
     return new_invite
 
+@app.get("/companies/invitations", response_model=List[schemas.InvitationResponse])
+def get_invitations(db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    invites = db.query(models.Invitation).filter(models.Invitation.company_id == current_user.company_id).all()
+    return invites
+
 @app.delete("/companies/invitations/{code}")
 def delete_invitation(code: str, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
     if current_user.role != models.RoleEnum.manager:
@@ -794,14 +802,13 @@ def join_company(join_req: schemas.JoinCompanyRequest, db: Session = Depends(get
 
     if not invite:
         raise HTTPException(status_code=404, detail="Invalid or expired invitation code")
-
     current_user.role = models.RoleEnum.worker
     current_user.company_id = invite.company_id
     current_user.department_id = invite.department_id
     current_user.position_id = invite.position_id
 
-    invite.is_used = True
-
+    db.delete(invite)
+    
     log_entry = models.AuditLog(
         company_id=invite.company_id,
         user_id=current_user.id,
