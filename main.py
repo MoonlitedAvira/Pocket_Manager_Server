@@ -676,7 +676,7 @@ def update_user(user_id: int, user_update: schemas.WorkerUpdate, db: Session = D
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     # Manager can only edit workers in their department unless they are director
-    if current_user.role == models.RoleEnum.manager and current_user.department_id != target_user.department_id:
+    if current_user.role == models.RoleEnum.manager and current_user.department_id is not None and current_user.department_id != target_user.department_id:
         raise HTTPException(status_code=403, detail="Cannot manage users outside your department")
 
     if user_update.department_id is not None:
@@ -696,7 +696,7 @@ def delete_user_from_company(user_id: int, db: Session = Depends(get_db), curren
     if not target_user or current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
-    if current_user.role == models.RoleEnum.manager and current_user.department_id != target_user.department_id:
+    if current_user.role == models.RoleEnum.manager and current_user.department_id is not None and current_user.department_id != target_user.department_id:
         raise HTTPException(status_code=403, detail="Cannot kick users outside your department")
 
     target_user.company_id = None
@@ -717,7 +717,7 @@ def get_user_stats(user_id: int, db: Session = Depends(get_db), current_user: mo
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     if current_user.role == models.RoleEnum.manager:
-        if current_user.department_id != target_user.department_id:
+        if current_user.department_id is not None and current_user.department_id != target_user.department_id:
             raise HTTPException(status_code=403, detail="Cannot view stats of users outside your department")
         
         # Check hierarchy
