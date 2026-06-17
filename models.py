@@ -95,7 +95,14 @@ class Position(Base, SyncMixin):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    hierarchy_level: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    permissions: Mapped[str] = mapped_column(String(255), nullable=True) # comma-separated permissions
+    hierarchy_level: Mapped[int] = mapped_column(default=0) # higher number = higher rank
+    
+    # Schedule settings
+    schedule_type: Mapped[str] = mapped_column(String(50), default="none") # none, rigid, flexible_daily, flexible_weekly
+    schedule_start: Mapped[datetime.time] = mapped_column(Time, nullable=True)
+    schedule_end: Mapped[datetime.time] = mapped_column(Time, nullable=True)
+    schedule_norm_minutes: Mapped[int] = mapped_column(Integer, nullable=True)
 
     department: Mapped["Department"] = relationship(back_populates="positions")
     users: Mapped[list["User"]] = relationship(back_populates="position")

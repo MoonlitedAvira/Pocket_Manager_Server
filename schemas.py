@@ -224,12 +224,20 @@ class PositionCreate(BaseModel):
     name: str
     department_id: int
     hierarchy_level: int = 0
+    schedule_type: Optional[str] = "none"
+    schedule_start: Optional[time] = None
+    schedule_end: Optional[time] = None
+    schedule_norm_minutes: Optional[int] = None
 
 class PositionResponse(BaseModel):
     id: int
     name: str
     department_id: int
     hierarchy_level: int
+    schedule_type: str = "none"
+    schedule_start: Optional[time] = None
+    schedule_end: Optional[time] = None
+    schedule_norm_minutes: Optional[int] = None
     updated_at: datetime
     is_deleted: bool
 
@@ -252,6 +260,10 @@ class DepartmentResponse(BaseModel):
 class PositionUpdate(BaseModel):
     name: Optional[str] = None
     hierarchy_level: Optional[int] = None
+    schedule_type: Optional[str] = None
+    schedule_start: Optional[time] = None
+    schedule_end: Optional[time] = None
+    schedule_norm_minutes: Optional[int] = None
 
 class WorkerUpdate(BaseModel):
     department_id: Optional[int] = None

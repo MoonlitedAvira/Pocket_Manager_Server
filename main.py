@@ -777,6 +777,38 @@ def get_invitations(db: Session = Depends(get_db), current_user: models.User = D
     invites = db.query(models.Invitation).filter(models.Invitation.company_id == current_user.company_id).all()
     return invites
 
+@app.put("/departments/{department_id}/positions/{position_id}", response_model=schemas.PositionResponse)
+def update_position(department_id: int, position_id: int, pos_data: schemas.PositionUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
+    if current_user.role not in [models.RoleEnum.manager, models.RoleEnum.director]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    department = db.query(models.Department).filter(models.Department.id == department_id, models.Department.company_id == current_user.company_id).first()
+    if not department:
+        raise HTTPException(status_code=404, detail="Department not found")
+        
+    position = db.query(models.Position).filter(models.Position.id == position_id, models.Position.department_id == department_id).first()
+    if not position:
+        raise HTTPException(status_code=404, detail="Position not found")
+        
+    if pos_data.name is not None:
+        position.name = pos_data.name
+    if pos_data.permissions is not None:
+        position.permissions = pos_data.permissions
+    if pos_data.hierarchy_level is not None:
+        position.hierarchy_level = pos_data.hierarchy_level
+    if pos_data.schedule_type is not None:
+        position.schedule_type = pos_data.schedule_type
+    if pos_data.schedule_start is not None:
+        position.schedule_start = pos_data.schedule_start
+    if pos_data.schedule_end is not None:
+        position.schedule_end = pos_data.schedule_end
+    if pos_data.schedule_norm_minutes is not None:
+        position.schedule_norm_minutes = pos_data.schedule_norm_minutes
+        
+    db.commit()
+    db.refresh(position)
+    return position
+
 @app.delete("/companies/invitations/{code}")
 def delete_invitation(code: str, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
     if current_user.role != models.RoleEnum.manager:
