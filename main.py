@@ -721,14 +721,15 @@ def get_user_stats(user_id: int, db: Session = Depends(get_db), current_user: mo
             raise HTTPException(status_code=403, detail="Cannot view stats of users outside your department")
         
         # Check hierarchy
-        current_pos = current_user.position
-        target_pos = target_user.position
-        
-        curr_lvl = current_pos.hierarchy_level if current_pos else -1
-        tgt_lvl = target_pos.hierarchy_level if target_pos else -1
-        
-        if curr_lvl <= tgt_lvl and current_user.id != target_user.id:
-             raise HTTPException(status_code=403, detail="Cannot view stats of users higher or equal in hierarchy")
+        if current_user.department_id is not None:
+            current_pos = current_user.position
+            target_pos = target_user.position
+            
+            curr_lvl = current_pos.hierarchy_level if current_pos else -1
+            tgt_lvl = target_pos.hierarchy_level if target_pos else -1
+            
+            if curr_lvl <= tgt_lvl and current_user.id != target_user.id:
+                 raise HTTPException(status_code=403, detail="Cannot view stats of users higher or equal in hierarchy")
 
     return schemas.WorkerStatsResponse(
         user_id=user_id,
