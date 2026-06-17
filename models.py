@@ -1,7 +1,7 @@
 # models.py
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import ForeignKey, String, Text, DateTime, Enum, Boolean, Integer, func
+from sqlalchemy import ForeignKey, String, Text, DateTime, Enum, Boolean, Integer, func, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 

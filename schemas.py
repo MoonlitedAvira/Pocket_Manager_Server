@@ -1,6 +1,6 @@
 # schemas.py
 from pydantic import BaseModel, ConfigDict, EmailStr
-from datetime import datetime
+from datetime import datetime, time
 from typing import Optional
 import models
 
