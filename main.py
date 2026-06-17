@@ -617,9 +617,10 @@ def create_company(company: schemas.CompanyCreate, db: Session = Depends(get_db)
 @app.post("/departments", response_model=schemas.DepartmentResponse)
 def create_department(dept: schemas.DepartmentCreate, db: Session = Depends(get_db),
                       current_user: models.User = Depends(security.get_current_user)):
-    if current_user.role != models.RoleEnum.manager or current_user.company_id != dept.company_id:
+    if current_user.role != models.RoleEnum.manager:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
+    dept.company_id = current_user.company_id
     new_dept = models.Department(**dept.model_dump())
     db.add(new_dept)
     db.commit()
