@@ -124,6 +124,8 @@ class MaslachResponse(BaseModel):
     emotional_exhaustion: float
     depersonalization: float
     personal_accomplishment: float
+    updated_at: datetime
+    is_deleted: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -139,6 +141,8 @@ class MunsterbergResponse(BaseModel):
     correct_words: int
     time_spent_seconds: int
     errors: int = 0
+    updated_at: datetime
+    is_deleted: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -228,6 +232,7 @@ class PositionCreate(BaseModel):
     schedule_start: Optional[time] = None
     schedule_end: Optional[time] = None
     schedule_norm_minutes: Optional[int] = None
+    schedule_days: Optional[str] = None
 
 class PositionResponse(BaseModel):
     id: int
@@ -238,6 +243,7 @@ class PositionResponse(BaseModel):
     schedule_start: Optional[time] = None
     schedule_end: Optional[time] = None
     schedule_norm_minutes: Optional[int] = None
+    schedule_days: Optional[str] = None
     updated_at: datetime
     is_deleted: bool
 
@@ -264,6 +270,7 @@ class PositionUpdate(BaseModel):
     schedule_start: Optional[time] = None
     schedule_end: Optional[time] = None
     schedule_norm_minutes: Optional[int] = None
+    schedule_days: Optional[str] = None
 
 class WorkerUpdate(BaseModel):
     department_id: Optional[int] = None

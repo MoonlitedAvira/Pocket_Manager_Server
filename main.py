@@ -115,6 +115,15 @@ def delete_user(db: Session = Depends(get_db), current_user: models.User = Depen
 def get_user_me(current_user: models.User = Depends(security.get_current_user)):
     return schemas.UserResponse.from_orm_custom(current_user)
 
+@app.get("/users/me/position", response_model=schemas.PositionResponse)
+def get_my_position(current_user: models.User = Depends(security.get_current_user), db: Session = Depends(database.get_db)):
+    if not current_user.position_id:
+        raise HTTPException(status_code=404, detail="Должность не назначена")
+    position = db.query(models.Position).filter(models.Position.id == current_user.position_id, models.Position.is_deleted == False).first()
+    if not position:
+        raise HTTPException(status_code=404, detail="Должность не найдена")
+    return position
+
 @app.post("/users/attendance", response_model=schemas.AttendanceResponse)
 def check_in(att_data: schemas.AttendanceCreate, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
     new_att = models.Attendance(user_id=current_user.id, action_type=att_data.action_type)

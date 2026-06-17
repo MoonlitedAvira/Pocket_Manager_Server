@@ -99,7 +99,8 @@ class Position(Base, SyncMixin):
     hierarchy_level: Mapped[int] = mapped_column(default=0) # higher number = higher rank
     
     # Schedule settings
-    schedule_type: Mapped[str] = mapped_column(String(50), default="none") # none, rigid, flexible_daily, flexible_weekly
+    schedule_type: Mapped[str] = mapped_column(String(50), nullable=True) # none, rigid, flexible_daily, flexible_weekly
+    schedule_days: Mapped[str] = mapped_column(String(50), nullable=True) # comma separated days, e.g. "1,2,3,4,5"
     schedule_start: Mapped[datetime.time] = mapped_column(Time, nullable=True)
     schedule_end: Mapped[datetime.time] = mapped_column(Time, nullable=True)
     schedule_norm_minutes: Mapped[int] = mapped_column(Integer, nullable=True)
